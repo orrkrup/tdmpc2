@@ -33,6 +33,8 @@ class TDMPC2:
 			[self._get_discount(ep_len) for ep_len in cfg.episode_lengths], device='cuda'
 		) if self.cfg.multitask else self._get_discount(cfg.episode_length)
 
+		self.gpu_act = cfg.gpu_act and torch.cuda.is_available()
+
 	def _get_discount(self, episode_length):
 		"""
 		Returns discount factor for a given episode length.
@@ -89,7 +91,7 @@ class TDMPC2:
 			a = self.plan(z, t0=t0, eval_mode=eval_mode, task=task)
 		else:
 			a = self.model.pi(z, task)[int(not eval_mode)][0]
-		return a.cpu()
+		return a.cpu() if not self.gpu_act else a
 
 	@torch.no_grad()
 	def _estimate_value(self, z, actions, task):

@@ -2,8 +2,10 @@ defaults:
     - override hydra/launcher: submitit_local
 
 # environment
-task: dog-run
-obs: state
+task: online-bpp
+obs: pc
+num_envs: 1
+gpu_act: true
 
 # evaluation
 checkpoint: ???
@@ -50,8 +52,8 @@ vmin: -10
 vmax: +10
 
 # architecture
-model_size: ???
-num_enc_layers: 2
+model_size: 5p
+num_enc_layers: 4
 enc_dim: 256
 num_channels: 32
 mlp_dim: 512
@@ -62,7 +64,7 @@ dropout: 0.01
 simnorm_dim: 8
 
 # logging
-wandb_project: ???
+wandb_project: bin_packing
 wandb_entity: ???
 wandb_silent: false
 disable_wandb: true
@@ -74,9 +76,9 @@ save_agent: true
 seed: 1
 
 # convenience
-work_dir: ???
-task_title: ???
-multitask: ???
+work_dir: /home/research/tdmpc2
+task_title: online_same_bin_packing
+multitask: False
 tasks: ???
 obs_shape: ???
 action_dim: ???

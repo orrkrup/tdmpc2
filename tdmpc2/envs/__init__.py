@@ -3,12 +3,18 @@ import warnings
 
 import gym
 
+def missing_dependencies(task):
+	raise ValueError(f'Missing dependencies for task {task}; install dependencies to use this environment.')
+
+# Picky isaacgym needs to be imported before torch
+try:
+	from envs.isaacgym import make_env as make_isaacgym_env
+except:
+	make_isaacgym_env = missing_dependencies
+
 from envs.wrappers.multitask import MultitaskWrapper
 from envs.wrappers.pixels import PixelWrapper
 from envs.wrappers.tensor import TensorWrapper
-
-def missing_dependencies(task):
-	raise ValueError(f'Missing dependencies for task {task}; install dependencies to use this environment.')
 
 try:
 	from envs.dmcontrol import make_env as make_dm_control_env
@@ -62,13 +68,14 @@ def make_env(cfg):
 
 	else:
 		env = None
-		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env]:
+		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_isaacgym_env]:
 			try:
 				env = fn(cfg)
 			except ValueError:
 				pass
 		if env is None:
 			raise ValueError(f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.')
+	if not cfg.get('obs', 'state') == 'pc':
 		env = TensorWrapper(env)
 	if cfg.get('obs', 'state') == 'rgb':
 		env = PixelWrapper(cfg, env)
