@@ -82,6 +82,22 @@ class SimNorm(nn.Module):
 		return f"SimNorm(dim={self.dim})"
 
 
+class GlobalMaxPool(nn.Module):
+	"""
+	Global max pooling layer.
+	"""
+
+	def __init__(self, dim=-1):
+		super().__init__()
+		self.dim = dim
+
+	def forward(self, x):
+		return x.max(dim=self.dim).values
+
+	def __repr__(self):
+		return f"GlobalMaxPool(dim={self.dim})"
+	
+
 class NormedLinear(nn.Linear):
 	"""
 	Linear layer with LayerNorm, activation, and optionally dropout.
@@ -139,6 +155,10 @@ def conv(in_shape, num_channels, act=None):
 	return nn.Sequential(*layers)
 
 
+def pointnet(in_dim, mlp_dims, out_dim, act=None, dropout=0.):
+	# same as mlp but with global maxpool over points added at the end
+	return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=1))
+
 def enc(cfg, out={}):
 	"""
 	Returns a dictionary of encoders for each observation in the dict.
@@ -148,6 +168,8 @@ def enc(cfg, out={}):
 			out[k] = mlp(cfg.obs_shape[k][0] + cfg.task_dim, max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
 		elif k == 'rgb':
 			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
+		elif 'pc' in k:
+			out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)
