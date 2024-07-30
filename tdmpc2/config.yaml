@@ -4,17 +4,18 @@ defaults:
 # environment
 task: online-bpp
 obs: pc
-num_envs: 1
+num_envs: 16
 gpu_act: true
 
 # evaluation
 checkpoint: ???
 eval_episodes: 10
-eval_freq: 50000
+eval_freq: 20000
+video_fps: 2
 
 # training
 steps: 10_000_000
-batch_size: 256
+batch_size: 128
 steps_per_update: 1
 reward_coef: 0.1
 value_coef: 0.1
@@ -27,9 +28,10 @@ tau: 0.01
 discount_denom: 5
 discount_min: 0.95
 discount_max: 0.995
-buffer_size: 1_000_000
+buffer_size: 500_000
 exp_name: default
 data_dir: ???
+log_freq: 1000
 
 # planning
 mpc: true
@@ -66,9 +68,9 @@ simnorm_dim: 8
 
 # logging
 wandb_project: bin_packing
-wandb_entity: ???
+wandb_entity: orrkrup
 wandb_silent: false
-disable_wandb: true
+disable_wandb: false
 save_csv: true
 
 # misc

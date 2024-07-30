@@ -96,9 +96,9 @@ class VideoRecorder:
 
 	def save(self, step, key='videos/eval_video'):
 		if self.enabled and len(self.frames) > 0:
-			frames = np.stack(self.frames)
+			frames = np.stack([frame.cpu() for frame in self.frames])
 			return self._wandb.log(
-				{key: self._wandb.Video(frames.transpose(0, 3, 1, 2), fps=self.fps, format='mp4')}, step=step
+				{key: self._wandb.Video(frames.transpose(0, 3, 1, 2), fps=self.fps, format=('mp4' if self.fps > 10 else None))}, step=step
 			)
 
 
@@ -138,7 +138,7 @@ class Logger:
 		print(colored("Logs will be synced with wandb.", "blue", attrs=["bold"]))
 		self._wandb = wandb
 		self._video = (
-			VideoRecorder(cfg, self._wandb)
+			VideoRecorder(cfg, self._wandb, fps=cfg.video_fps)
 			if self._wandb and cfg.save_video
 			else None
 		)
@@ -220,7 +220,7 @@ class Logger:
 			print(colored(f'  {"metaworld":<22}\tR: {metaworld_reward:.01f}', 'yellow', attrs=['bold']))
 			print(colored(f'  {"metaworld":<22}\tS: {metaworld_success:.02f}', 'yellow', attrs=['bold']))
 
-	def log(self, d, category="train"):
+	def log(self, d, category="train", print=False):
 		assert category in CAT_TO_COLOR.keys(), f"invalid category: {category}"
 		if self._wandb:
 			if category in {"train", "eval"}:
@@ -237,4 +237,5 @@ class Logger:
 			pd.DataFrame(np.array(self._eval)).to_csv(
 				self._log_dir / "eval.csv", header=keys, index=None
 			)
-		self._print(d, category)
+		if print:
+			self._print(d, category)

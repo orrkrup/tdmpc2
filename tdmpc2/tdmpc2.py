@@ -131,8 +131,8 @@ class TDMPC2:
 		z = z.unsqueeze(1).repeat(1, self.cfg.num_samples, 1)
 		mean = torch.zeros(self.cfg.num_envs, self.cfg.horizon, self.cfg.action_dim, device=self.device)
 		std = self.cfg.max_std*torch.ones(self.cfg.num_envs, self.cfg.horizon, self.cfg.action_dim, device=self.device)
-		if not t0:
-			mean[:, :-1] = self._prev_mean[:, 1:]
+		if (t0 == 0).any():
+			mean[(t0 == 0).nonzero(), :-1] = self._prev_mean[(t0 == 0).nonzero(), 1:]
 		actions = torch.empty(self.cfg.num_envs, self.cfg.horizon, self.cfg.num_samples, self.cfg.action_dim, device=self.device)
 		if self.cfg.num_pi_trajs > 0:
 			actions[:, :, :self.cfg.num_pi_trajs] = pi_actions

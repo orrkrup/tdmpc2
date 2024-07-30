@@ -157,7 +157,7 @@ def conv(in_shape, num_channels, act=None):
 
 def pointnet(in_dim, mlp_dims, out_dim, act=None, dropout=0.):
 	# same as mlp but with global maxpool over points added at the end
-	return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=1))
+	return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=-2))
 
 def enc(cfg, out={}):
 	"""

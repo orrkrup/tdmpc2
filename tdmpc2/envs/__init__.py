@@ -69,19 +69,23 @@ def make_env(cfg):
 		env = make_multitask_env(cfg)
 	else:
 		env = None
+		isaacgym_env = False
 		for fn in [make_dm_control_env, make_maniskill_env, make_metaworld_env, make_myosuite_env, make_isaacgym_env]:
 			try:
 				env = fn(cfg)
+				isaacgym_env = fn == make_isaacgym_env
 				break
 			except ValueError:
 				pass
 		if env is None:
 			raise ValueError(f'Failed to make environment "{cfg.task}": please verify that dependencies are installed and that the task exists.')
+		
 		assert cfg.num_envs == 1 or cfg.get('obs', 'state') == 'state' or cfg.get('obs', 'state') == 'pc', \
 			'Vectorized environments only support state or PC observations.'
-		env = Vectorized(cfg, fn)
-	if not cfg.get('obs', 'state') == 'pc':
-		env = TensorWrapper(env)
+		if not isaacgym_env:
+			env = Vectorized(cfg, fn)
+
+	env = TensorWrapper(env)
 	if cfg.get('obs', 'state') == 'rgb':
 		env = PixelWrapper(cfg, env)
 	try: # Dict
