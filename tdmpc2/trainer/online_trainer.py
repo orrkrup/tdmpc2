@@ -42,7 +42,7 @@ class OnlineTrainer(Trainer):
 			obs, reward, done, info = self.env.step(action)
 			ep_reward += reward
 			t += 1
-			if self.cfg.save_video:
+			if self.cfg.save_video and not done[0]:  # TODO: this assumes env[0] is the only one collecting video
 				self.logger.video.record(self.env)
 			
 			for idx, d in enumerate(done):
@@ -111,8 +111,8 @@ class OnlineTrainer(Trainer):
 					self.logger.log(train_metrics, 'train', print=print_next)
 					print_next = False
 					done_inds = done.nonzero(as_tuple=True)[0]
-					self._ep_idx = self.buffer.add(tds[:, done_inds], valid_inds=valid_inds[done_inds])
-					valid_inds[done.nonzero()] = len(self._tds)
+					self._ep_idx = self.buffer.add(tds[:-1, done_inds], valid_inds=valid_inds[done_inds])
+					valid_inds[done.nonzero(as_tuple=True)] = len(self._tds) - 1
 
 				if eval_next:
 					obs = self.env.reset()
