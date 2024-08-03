@@ -70,7 +70,7 @@ simnorm_dim: 8
 wandb_project: bin_packing
 wandb_entity: orrkrup
 wandb_silent: false
-disable_wandb: false
+disable_wandb: true
 save_csv: true
 
 # misc

@@ -155,9 +155,27 @@ def conv(in_shape, num_channels, act=None):
 	return nn.Sequential(*layers)
 
 
-def pointnet(in_dim, mlp_dims, out_dim, act=None, dropout=0.):
+def pointnet(in_dim, out_dim, dropout=0.):
 	# same as mlp but with global maxpool over points added at the end
-	return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=-2))
+	# return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=-2))
+
+	block_channel = [32, 64, 64, out_dim]
+
+	# Initialization of the MLP:
+	mlp = nn.Sequential(
+		nn.Linear(in_dim, block_channel[0]),
+		nn.ReLU(),
+		nn.Linear(block_channel[0], block_channel[1]),
+		nn.ReLU(),
+		nn.Linear(block_channel[1], block_channel[2]),
+		nn.ReLU(),
+		nn.Linear(block_channel[2], block_channel[3]),
+		GlobalMaxPool(dim=-2),
+		nn.Linear(block_channel[-1], out_dim),
+		nn.LayerNorm(out_dim)
+	)
+	return mlp
+	
 
 def enc(cfg, out={}):
 	"""
@@ -169,7 +187,8 @@ def enc(cfg, out={}):
 		elif k == 'rgb':
 			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
 		elif 'pc' in k:
-			out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
+			# out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
+			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim)
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)

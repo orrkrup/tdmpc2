@@ -1,0 +1,14 @@
+hydra
+hydra-core
+hydra-submitit-launcher
+termcolor
+gym
+omegaconf
+tensordict
+torchrl
+packaging
+tqdm
+pandas
+
+moviepy
+imageio
