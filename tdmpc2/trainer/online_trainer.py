@@ -60,7 +60,7 @@ class OnlineTrainer(Trainer):
 			# episode_success=info['success'].mean(),
 		)
 
-	def to_td(self, obs, action=None, reward=None):
+	def to_td(self, obs, action=None, reward=None, terminated=None):
 		"""Creates a TensorDict for a new episode."""
 		if isinstance(obs, dict):
 			obs = TensorDict(obs, batch_size=(), device=self.env.device)
@@ -70,10 +70,13 @@ class OnlineTrainer(Trainer):
 			action = torch.full_like(self.env.rand_act(), float('nan'))
 		if reward is None:
 			reward = torch.tensor(float('nan'), device=self.env.device).repeat(self.cfg.num_envs)
+		if terminated is None:
+			terminated = torch.tensor(float('nan'), device=self.env.device).repeat(self.cfg.num_envs)
 		td = TensorDict(dict(
 			obs=obs,
 			action=action.unsqueeze(0),
 			reward=reward.unsqueeze(0),
+			terminated=terminated.unsqueeze(0),
 		), batch_size=(1, self.cfg.num_envs,))
 		return td
 
@@ -95,12 +98,6 @@ class OnlineTrainer(Trainer):
 
 			# Reset environment
 			if done.any():
-				if eval_next:
-					eval_metrics = self.eval()
-					eval_metrics.update(self.common_metrics())
-					self.logger.log(eval_metrics, 'eval')
-					done = torch.tensor([True] * self.cfg.num_envs)
-
 				if self._step > 0:
 					tds = torch.cat(self._tds)
 					train_metrics.update(
@@ -111,10 +108,13 @@ class OnlineTrainer(Trainer):
 					self.logger.log(train_metrics, 'train', print=print_next)
 					print_next = False
 					done_inds = done.nonzero(as_tuple=True)[0]
-					self._ep_idx = self.buffer.add(tds[:-1, done_inds], valid_inds=valid_inds[done_inds])
+					self._ep_idx = self.buffer.add(tds[:, done_inds], valid_inds=valid_inds[done_inds])
 					valid_inds[done.nonzero(as_tuple=True)] = len(self._tds) - 1
 
 				if eval_next:
+					eval_metrics = self.eval()
+					eval_metrics.update(self.common_metrics())
+					self.logger.log(eval_metrics, 'eval')
 					obs = self.env.reset()
 					self._tds = [self.to_td(obs)]
 					valid_inds = torch.zeros(self.cfg.num_envs, dtype=torch.int32, device=self.env.device)
@@ -131,7 +131,7 @@ class OnlineTrainer(Trainer):
 			else:
 				action = self.env.rand_act()
 			obs, reward, done, info = self.env.step(action)
-			self._tds.append(self.to_td(obs, action, reward))
+			self._tds.append(self.to_td(obs, action, reward, done.float()))
 
 			# Update agent
 			if self._step >= self.cfg.seed_steps:
