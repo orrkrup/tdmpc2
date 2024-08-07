@@ -96,7 +96,10 @@ class Buffer():
 			valid_inds = torch.zeros(num_eps, dtype=torch.int32)
 		for i in range(num_eps):
 			new_ep = td[i, valid_inds[i]:]
-			self.ep_len_histogram[len(new_ep)] += 1
+			try:
+				self.ep_len_histogram[len(new_ep)] += 1
+			except IndexError:
+				print(f"Found episode of length {len(new_ep)}")
 			self._buffer.extend(new_ep.to(self._buffer.storage.device))
 		self._num_eps += num_eps
 		return self._num_eps
