@@ -100,6 +100,8 @@ class Buffer():
 				self.ep_len_histogram[len(new_ep)] += 1
 			except IndexError:
 				print(f"Found episode of length {len(new_ep)}")
+				print(f"Dones: {new_ep['terminated']}")
+				print(f"Rewards: {new_ep['reward']}")
 			self._buffer.extend(new_ep.to(self._buffer.storage.device))
 		self._num_eps += num_eps
 		return self._num_eps
