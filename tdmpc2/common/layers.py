@@ -172,7 +172,7 @@ def pointnet(in_dim, out_dim, dropout=0., act=None):
 		nn.Linear(block_channel[2], block_channel[3]),
 		GlobalMaxPool(dim=-2),
 		nn.Linear(block_channel[-1], out_dim),
-		act if act is not None else nn.LayerNorm(out_dim)
+		act if act is not None else nn.Identity()
 	)
 	return mlp
 	
@@ -188,7 +188,8 @@ def enc(cfg, out={}):
 			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
 		elif 'pc' in k:
 			# out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
-			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=SimNorm(cfg))
+			# out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=SimNorm(cfg))
+			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=None)
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)
