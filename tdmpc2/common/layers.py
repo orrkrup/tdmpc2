@@ -159,7 +159,7 @@ def pointnet(in_dim, out_dim, dropout=0., act=None):
 	# same as mlp but with global maxpool over points added at the end
 	# return nn.Sequential(mlp(in_dim, mlp_dims, out_dim, act, dropout), GlobalMaxPool(dim=-2))
 
-	block_channel = [32, 64, 64, out_dim]
+	block_channel = [32, 64, 128, 256]
 
 	# Initialization of the MLP:
 	mlp = nn.Sequential(
@@ -188,8 +188,8 @@ def enc(cfg, out={}):
 			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
 		elif 'pc' in k:
 			# out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
-			# out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=SimNorm(cfg))
-			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=None)
+			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=SimNorm(cfg))
+			# out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=None)
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)
