@@ -190,8 +190,8 @@ def enc(cfg, out={}):
 			out[k] = conv(cfg.obs_shape[k], cfg.num_channels, act=SimNorm(cfg))
 		elif 'pc' in k:
 			# out[k] = pointnet(cfg.obs_shape[k][1], max(cfg.num_enc_layers-1, 1)*[cfg.enc_dim], cfg.latent_dim, act=SimNorm(cfg))
-			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, use_layernorm=True, act=SimNorm(cfg))
-			# out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=None)
+			# out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, use_layernorm=True, act=SimNorm(cfg))
+			out[k] = pointnet(cfg.obs_shape[k][1], cfg.latent_dim, act=nn.LayerNorm(cfg.latent_dim))
 		else:
 			raise NotImplementedError(f"Encoder for observation type {k} not implemented.")
 	return nn.ModuleDict(out)
