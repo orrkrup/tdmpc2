@@ -15,7 +15,7 @@ from common.parser import parse_cfg
 from common.seed import set_seed
 from common.buffer import Buffer
 
-from tdmpc2 import TDMPC2
+from vmppi import VMPPI
 from trainer.offline_trainer import OfflineTrainer
 from trainer.online_trainer import OnlineTrainer
 from common.logger import Logger
@@ -53,7 +53,7 @@ def train(cfg: dict):
 	trainer = trainer_cls(
 		cfg=cfg,
 		env=make_env(cfg),
-		agent=TDMPC2(cfg),
+		agent=VMPPI(cfg, env),
 		buffer=Buffer(cfg),
 		logger=Logger(cfg),
 	)

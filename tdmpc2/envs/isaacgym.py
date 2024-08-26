@@ -38,16 +38,29 @@ class BinPackingWrapper(gym.Wrapper):
         return torch.stack([self.env.rand_act() for _ in range(self.num_envs)], dim=0)
     
     def step(self, action):
-        if 1 == self.num_envs:
+
+        if len(action.shape) == 1:
             action = action.unsqueeze(0)
-    
+
+        num_actions = action.shape[0]
+        if num_actions < self.num_envs:
+            action = torch.cat([action, torch.zeros(self.num_envs - num_actions, action.shape[1], device=action.device)], dim=0)
+
         obs, reward, done, info = self.env.step(action)
+
+        if num_actions < self.num_envs:
+            obs = {k: v[:num_actions] for k, v in obs.items()}
+            reward = reward[:num_actions]
+            done = done[:num_actions]
+
+        obs = self._get_obs(obs)
+        
         if 'success' not in info.keys():
             info['success'] = 0
 
         if 1 == self.num_envs:
             reward = reward.item()    
-        return self._get_obs(obs), reward, done, info
+        return obs, reward, done, info
 	
     def render(self):
         vid_im = self.env.render()[0]
@@ -63,6 +76,8 @@ class BinPackingWrapper(gym.Wrapper):
             self.num_padded += 1
             return torch.cat([pc, torch.zeros(n_points - pc.shape[0], pc.shape[1], device=pc.device)], dim=0)
 	
+
+
 
 def make_env(cfg):
 
