@@ -44,7 +44,8 @@ class Buffer():
 			storage=storage,
 			sampler=self._sampler,
 			pin_memory=True,
-			prefetch=int(self.cfg.num_envs / self.cfg.steps_per_update),
+			# prefetch=int(self.cfg.num_envs / self.cfg.steps_per_update),
+			prefetch=1,
 			batch_size=self._batch_size,
 		)
 
@@ -84,7 +85,7 @@ class Buffer():
 		task = td['task'][0] if 'task' in td.keys() else None
 		return self._to_device(obs, action, reward, terminated, task)
 
-	def add(self, td, valid_inds=None):
+	def add_many(self, td, valid_inds=None):
 		"""Add a new set of episodes to the buffer."""
 		num_eps = td.shape[1]
 		td['episode'] = torch.ones_like(td['reward'], dtype=torch.int64) * torch.arange(self._num_eps, self._num_eps+num_eps, device=self._device)
@@ -106,6 +107,15 @@ class Buffer():
 		self._num_eps += num_eps
 		return self._num_eps
 
+	def add(self, td):
+		"""Add an episode to the buffer."""
+		td['episode'] = torch.ones_like(td['reward'], dtype=torch.int64) * self._num_eps
+		if self._num_eps == 0:
+			self._buffer = self._init(td)
+		self._buffer.extend(td.to(self._buffer.storage.device))
+		self._num_eps += 1
+		return self._num_eps
+	
 	def sample(self):
 		"""Sample a batch of subsequences from the buffer."""
 		td = self._buffer.sample().view(-1, self.cfg.horizon+1).permute(1, 0)

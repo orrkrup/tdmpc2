@@ -18,10 +18,13 @@ class WorldModel(nn.Module):
 		self.cfg = cfg
 
 		self._encoder = layers.enc(cfg)
-		# self._pi = layers.mlp(cfg.latent_dim + cfg.task_dim, 2*[cfg.mlp_dim], 2*cfg.action_dim)
+		if cfg.use_policy_prior:
+			self._pi = layers.mlp(cfg.latent_dim + cfg.task_dim, 2*[cfg.mlp_dim], 2*cfg.action_dim)
+		else:
+			self._pi = None
 		self._Qs = layers.Ensemble([layers.mlp(cfg.latent_dim + cfg.action_dim + cfg.task_dim, 2*[cfg.mlp_dim], max(cfg.num_bins, 1), dropout=cfg.dropout) for _ in range(cfg.num_q)])
 		self.apply(init.weight_init)
-		init.zero_([self._reward[-1].weight, self._Qs.params[-2]])
+		init.zero_([self._Qs.params[-2]])
 		self._target_Qs = deepcopy(self._Qs).requires_grad_(False)
 		self.log_std_min = torch.tensor(cfg.log_std_min)
 		self.log_std_dif = torch.tensor(cfg.log_std_max) - self.log_std_min
@@ -78,33 +81,24 @@ class WorldModel(nn.Module):
 			return torch.stack([self._encoder[self.cfg.obs](o) for o in obs])
 		return self._encoder[self.cfg.obs](obs)
 
-	# def pi(self, z, task):
-	# 	"""
-	# 	Samples an action from the policy prior.
-	# 	The policy prior is a Gaussian distribution with
-	# 	mean and (log) std predicted by a neural network.
-	# 	"""
-	# 	if self.cfg.multitask:
-	# 		z = self.task_emb(z, task)
+	def pi(self, z):
+		"""
+		Samples an action from the policy prior.
+		The policy prior is a Gaussian distribution with
+		mean and (log) std predicted by a neural network.
+		"""
+		# Gaussian policy prior
+		mu, log_std = self._pi(z).chunk(2, dim=-1)
+		log_std = math.log_std(log_std, self.log_std_min, self.log_std_dif)
+		eps = torch.randn_like(mu)
 
-	# 	# Gaussian policy prior
-	# 	mu, log_std = self._pi(z).chunk(2, dim=-1)
-	# 	log_std = math.log_std(log_std, self.log_std_min, self.log_std_dif)
-	# 	eps = torch.randn_like(mu)
+		action_dims = None
 
-	# 	if self.cfg.multitask: # Mask out unused action dimensions
-	# 		mu = mu * self._action_masks[task]
-	# 		log_std = log_std * self._action_masks[task]
-	# 		eps = eps * self._action_masks[task]
-	# 		action_dims = self._action_masks.sum(-1)[task].unsqueeze(-1)
-	# 	else: # No masking
-	# 		action_dims = None
+		log_pi = math.gaussian_logprob(eps, log_std, size=action_dims)
+		pi = mu + eps * log_std.exp()
+		mu, pi, log_pi = math.squash(mu, pi, log_pi)
 
-	# 	log_pi = math.gaussian_logprob(eps, log_std, size=action_dims)
-	# 	pi = mu + eps * log_std.exp()
-	# 	mu, pi, log_pi = math.squash(mu, pi, log_pi)
-
-	# 	return mu, pi, log_pi, log_std
+		return mu, pi, log_pi, log_std
 
 	def Q(self, z, a, return_type='min', target=False):
 		"""

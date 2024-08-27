@@ -1,4 +1,4 @@
-from isaac_robot_sims.envs.bin_packing import OnlineBinPackingEnv
+from isaac_robot_sims.envs.bin_packing import PlanningBinPackingEnv
 from isaac_robot_sims.definitions import ItemDescription, BinDescription, ObservationDescription
 
 import gymnasium as gym
@@ -32,6 +32,9 @@ class BinPackingWrapper(gym.Wrapper):
         if 'ids' in kwargs.keys() and 'options' not in kwargs.keys():
             kwargs['options'] = {'ids': kwargs['ids']}
         obs = self.env.reset(**kwargs)
+
+        num_actions = 1
+        obs = {k: v[:num_actions] for k, v in obs.items()}
         return self._get_obs(obs)
     
     def rand_act(self):
@@ -58,8 +61,9 @@ class BinPackingWrapper(gym.Wrapper):
         if 'success' not in info.keys():
             info['success'] = 0
 
-        if 1 == self.num_envs:
-            reward = reward.item()    
+        if 1 == num_actions:
+            reward = reward.item()
+            done = done.item()
         return obs, reward, done, info
 	
     def render(self):
@@ -95,7 +99,7 @@ def make_env(cfg):
     # item_desc = ItemDescription(type='irbpp', dataset_name='blockout', dataset_root='/home/orr/research/isaac_robot_sims/data/IR_BPP_Dataset/')
     # bin_desc = BinDescription(size=[0.32, 0.32, 0.3])
     obs_desc = ObservationDescription(n_video_envs=1)
-    env = OnlineBinPackingEnv(num_envs=cfg.num_envs, headless=True, item_desc=item_desc, bin_desc=bin_desc, obs_desc=obs_desc, device=device_name)
+    env = PlanningBinPackingEnv(num_envs=cfg.num_envs, headless=True, item_desc=item_desc, bin_desc=bin_desc, obs_desc=obs_desc, device=device_name)
 
     env = BinPackingWrapper(cfg, env, use_object=False)
     return env

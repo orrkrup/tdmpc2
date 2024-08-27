@@ -159,9 +159,9 @@ class TDMPC2:
 			# Update parameters
 			max_value = elite_value.max(1)[0]
 			score = torch.exp(self.cfg.temperature*(elite_value - max_value.unsqueeze(1)))
-			score /= score.sum(1, keepdim=True)
-			mean = torch.sum(score.unsqueeze(1) * elite_actions, dim=2) / (score.sum(1, keepdim=True) + 1e-9)
-			std = torch.sqrt(torch.sum(score.unsqueeze(1) * (elite_actions - mean.unsqueeze(2)) ** 2, dim=2) / (score.sum(1, keepdim=True) + 1e-9)) \
+			score /= (score.sum(1, keepdim=True) + 1e-9)
+			mean = torch.sum(score.unsqueeze(1) * elite_actions, dim=2) / score
+			std = torch.sqrt(torch.sum(score.unsqueeze(1) * (elite_actions - mean.unsqueeze(2)) ** 2, dim=2) / score) \
 				.clamp_(self.cfg.min_std, self.cfg.max_std)
 			if self.cfg.multitask:
 				mean = mean * self.model._action_masks[task]
