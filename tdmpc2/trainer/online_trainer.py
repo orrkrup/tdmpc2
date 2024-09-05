@@ -65,6 +65,7 @@ class OnlineTrainer(Trainer):
 		ep_rewards, ep_successes = [], []
 		obs = self.env.reset()
 		for i in range(self.cfg.eval_episodes):
+			st = time()
 			done, ep_reward, t = False, 0, 0
 			if self.cfg.save_video:
 				self.logger.video.init(self.env, enabled=(i==0))
@@ -79,6 +80,7 @@ class OnlineTrainer(Trainer):
 			ep_successes.append(info['success'])
 			if self.cfg.save_video:
 				self.logger.video.save(self._step)
+			print(f"Episode {i+1}/{self.cfg.eval_episodes} ({time()-st:.2f}s): {ep_reward:.2f}")
 		return dict(
 			episode_reward=sum(ep_rewards) / len(ep_rewards),
 			# episode_success=np.nanmean(ep_successes),
@@ -106,7 +108,7 @@ class OnlineTrainer(Trainer):
 
 	def train_many(self):
 		"""Train a TD-MPC2 agent."""
-		train_metrics, done, eval_next = {}, True, True
+		train_metrics, done, eval_next = {}, torch.tensor(True), True
 		valid_inds = torch.zeros(self.cfg.num_envs, dtype=torch.int32, device=self.env.device)
 		self._tds = []
 
@@ -172,9 +174,68 @@ class OnlineTrainer(Trainer):
 	
 		self.logger.finish(self.agent)
 
+	def collect(self, num_steps):
+		"""Collcet data with random actions, add to buffer"""
+		train_metrics, done = {}, torch.tensor(True)
+		valid_inds = torch.zeros(self.cfg.num_envs, dtype=torch.int32, device=self.env.device)
+		self._tds = []
+
+		while self._step <= num_steps:
+
+			# Print metrics periodically
+			if self._step % self.cfg.log_freq == 0:
+				print_next = True
+
+			# Reset environment
+			if done.any():
+				if self._step > 0:
+					tds = torch.cat(self._tds)
+					train_metrics.update(
+						episode_reward=tds['reward'].nansum(0).mean(),
+						# episode_success=info['success'].nanmean(),
+					)
+					train_metrics.update(self.common_metrics())
+					self.logger.log(train_metrics, 'train', print=print_next)
+					print_next = False
+					done_inds = done.nonzero(as_tuple=True)[0]
+					self._ep_idx = self.buffer.add_many(tds[:, done_inds], valid_inds=valid_inds[done_inds])
+					valid_inds[done.nonzero(as_tuple=True)] = len(self._tds) - 1
+
+				# No need to reset if we didn't evaluate; bin packing env resets itself when done								
+				min_valid_ind = valid_inds.min().item()
+				self._tds = self._tds[min_valid_ind:]
+				valid_inds -= min_valid_ind
+
+			# Collect experience
+			action = self.env.rand_act(use_all=True)
+			obs, reward, done, info = self.env.step(action)
+			self._tds.append(self.to_td(obs, action, reward, done.float()))
+
+			self._step += self.cfg.num_envs
+
+		return train_metrics
+	
+	def train_on_seed_steps(self, train_metrics):
+		num_updates = self.cfg.seed_steps
+		for _ in range(num_updates):
+			_train_metrics = self.agent.update(self.buffer)
+		train_metrics.update(_train_metrics)
+		return train_metrics
+
 	def train(self):
 		"""Train a TD-MPC2 agent."""
-		train_metrics, done, eval_next = {}, True, True
+
+		st = time()
+		train_metrics = self.collect(self.cfg.seed_steps)
+		print(f"Seed data collected (time: {time() - st}), starting pre-training...")
+		st = time()
+		train_metrics = self.train_on_seed_steps(train_metrics)
+		print(f"Pre-training on seed data complete (time: {time() - st}), starting training...")
+
+		done, eval_next, st = False, False, time()
+		
+		obs = self.env.reset()
+		self._tds = [self.to_td(obs)]
 		while self._step <= self.cfg.steps:
 
 			# Evaluate agent periodically
@@ -182,20 +243,21 @@ class OnlineTrainer(Trainer):
 				eval_next = True
 
 			# Print metrics periodically
-			if self._step % self.cfg.log_freq == 0:
-				print_next = True
+			# if self._step % self.cfg.log_freq == 0:
+			# 	print_next = True
 
 			# Reset environment
 			if done:
-				if self._step > 0:
-					train_metrics.update(
-						episode_reward=torch.tensor([td['reward'] for td in self._tds[1:]]).sum(),
-						# episode_success=info['success'],
-					)
-					train_metrics.update(self.common_metrics())
-					self.logger.log(train_metrics, 'train', print=print_next)
-					print_next = False
-					self._ep_idx = self.buffer.add(torch.cat(self._tds))
+
+				train_metrics.update(
+					episode_reward=torch.tensor([td['reward'] for td in self._tds[1:]]).sum(),
+					# episode_success=info['success'],
+				)
+				train_metrics.update(self.common_metrics())
+				self.logger.log(train_metrics, 'train', print=True)  # print=print_next)
+				# print_next = False
+				self._ep_idx = self.buffer.add(torch.cat(self._tds))
+				print(f"Episode time: {time() - st:.2f}")
 
 				if eval_next:
 					eval_metrics = self.eval()
@@ -203,29 +265,21 @@ class OnlineTrainer(Trainer):
 					self.logger.log(eval_metrics, 'eval')
 					eval_next = False
 					obs = self.env.reset()
-				else:
-					# No need to reset if we didn't evaluate; bin packing env resets itself when done
-					# obs is already updated to the next episode	
-					self._tds = [self.to_td(obs)]
+
+				# No need to reset if we didn't evaluate; bin packing env resets itself when done
+				# obs is already updated to the next episode	
+				self._tds = [self.to_td(obs)]
+
+				st = time()
 
 			# Collect experience
-			if self._step > self.cfg.seed_steps:
-				action = self.agent.act(obs, t0=len(self._tds)==1)
-			else:
-				action = self.env.rand_act()
+			action = self.agent.act(obs, t0=len(self._tds)==1)
 			obs, reward, done, info = self.env.step(action)
-			self._tds.append(self.to_td(obs, action, reward, done.float()))
+			self._tds.append(self.to_td(obs, action, torch.tensor(reward, device=self.env.device), torch.tensor(done, device=self.env.device).float()))
 
 			# Update agent
-			if self._step >= self.cfg.seed_steps:
-				if self._step == self.cfg.seed_steps:
-					num_updates = self.cfg.seed_steps
-					print('Pretraining agent on seed data...')
-				else:
-					num_updates = 1
-				for _ in range(num_updates):
-					_train_metrics = self.agent.update(self.buffer)
-				train_metrics.update(_train_metrics)
+			_train_metrics = self.agent.update(self.buffer)
+			train_metrics.update(_train_metrics)
 
 			self._step += 1
 	

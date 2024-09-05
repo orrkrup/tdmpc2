@@ -37,10 +37,13 @@ class BinPackingWrapper(gym.Wrapper):
         obs = {k: v[:num_actions] for k, v in obs.items()}
         return self._get_obs(obs)
     
-    def rand_act(self):
-        return torch.stack([self.env.rand_act() for _ in range(self.num_envs)], dim=0)
+    def rand_act(self, use_all=False):
+        if isinstance(self.unwrapped, PlanningBinPackingEnv) and not use_all:
+            return self.env.rand_act()
+        else:
+            return torch.stack([self.env.rand_act() for _ in range(self.num_envs)], dim=0)
     
-    def step(self, action):
+    def step(self, action, **kwargs):
 
         if len(action.shape) == 1:
             action = action.unsqueeze(0)
@@ -49,14 +52,16 @@ class BinPackingWrapper(gym.Wrapper):
         if num_actions < self.num_envs:
             action = torch.cat([action, torch.zeros(self.num_envs - num_actions, action.shape[1], device=action.device)], dim=0)
 
-        obs, reward, done, info = self.env.step(action)
+        obs, reward, done, info = self.env.step(action, **kwargs)
 
         if num_actions < self.num_envs:
-            obs = {k: v[:num_actions] for k, v in obs.items()}
+            if obs is not None:
+                obs = {k: v[:num_actions] for k, v in obs.items()}
             reward = reward[:num_actions]
             done = done[:num_actions]
 
-        obs = self._get_obs(obs)
+        if obs is not None:
+            obs = self._get_obs(obs)
         
         if 'success' not in info.keys():
             info['success'] = 0

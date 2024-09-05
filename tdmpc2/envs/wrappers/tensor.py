@@ -15,9 +15,9 @@ class TensorWrapper(gym.Wrapper):
 		self._wrapped_isaacgym = env.__class__.__name__ == 'BinPackingWrapper'
 		self._wrapped_vectorized = env.__class__.__name__ == 'Vectorized' or self._wrapped_isaacgym
 	
-	def rand_act(self):
+	def rand_act(self, **kwargs):
 		if self._wrapped_vectorized or self._wrapped_isaacgym:
-			return self.env.rand_act()
+			return self.env.rand_act(**kwargs)
 		return torch.from_numpy(self.action_space.sample().astype(np.float32))
 
 	def _try_f32_tensor(self, x):
@@ -58,4 +58,5 @@ class TensorWrapper(gym.Wrapper):
 		else:
 			info = defaultdict(float, info)
 			info['success'] = float(info['success'])
-		return self._obs_to_tensor(obs), torch.tensor(reward, dtype=torch.float32), done, info
+
+		return self._obs_to_tensor(obs) if obs is not None else obs, torch.tensor(reward, dtype=torch.float32), done, info

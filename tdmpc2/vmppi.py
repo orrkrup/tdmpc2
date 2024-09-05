@@ -23,8 +23,7 @@ class VMPPI:
 			{'params': self.model._encoder.parameters(), 'lr': self.cfg.lr*self.cfg.enc_lr_scale},
 			{'params': self.model._Qs.parameters()},
 		], lr=self.cfg.lr)
-		## commenting out policy stuff instead of removing it, we may want it later
-		# self.pi_optim = torch.optim.Adam(self.model._pi.parameters(), lr=self.cfg.lr, eps=1e-5)
+		self.pi_optim = torch.optim.Adam(self.model._pi.parameters(), lr=self.cfg.lr, eps=1e-5)
 		self.model.eval()
 		self.scale = RunningScale(cfg)
 		self.discount = self._get_discount(cfg.episode_length)
@@ -99,9 +98,10 @@ class VMPPI:
 			
 			for t in range(self.cfg.horizon):
 
-				obs, reward, done, _ = self.envs.step(action_batch[t])
+				obs, reward, done, _ = self.envs.step(action_batch[t], get_obs=(t == self.cfg.horizon - 1))
 
-				z = self.model.encode(obs)
+				if t == self.cfg.horizon - 1:
+					z = self.model.encode(obs)
 
 				G += discount * (1 - terminated) * reward
 				discount *= self.discount
@@ -148,10 +148,10 @@ class VMPPI:
 			
 			# Update parameters
 			max_value = elite_value.max()
-			score = torch.exp(self.cfg.temperature * (elite_value - max_value.unsqueeze(0)))
-			score /= (score.sum(0, keepdim=True) + 1e-9)
-			mean = torch.sum(score.unsqueeze(0).unsqueeze(2) * elite_actions, dim=1) / score
-			std = torch.sqrt(torch.sum(score.unsqueeze(0).unsqueeze(2) * (elite_actions - mean.unsqueeze(1)) ** 2, dim=1) / score) \
+			score = torch.exp(self.cfg.temperature * (elite_value - max_value))
+			score /= (score.sum(0) + 1e-9)
+			mean = torch.sum(score.unsqueeze(0).unsqueeze(2) * elite_actions, dim=1)
+			std = torch.sqrt(torch.sum(score.unsqueeze(0).unsqueeze(2) * (elite_actions - mean.unsqueeze(1)) ** 2, dim=1)) \
 				.clamp_(self.cfg.min_std, self.cfg.max_std)
 		
 		# Select action sequence with probability `score`
@@ -215,7 +215,7 @@ class VMPPI:
 
 		return action.clamp_(-1, 1)
 		
-	def update_pi(self, zs, task):
+	def update_pi(self, zs):
 		"""
 		Update policy using a sequence of latent states.
 		
@@ -228,8 +228,8 @@ class VMPPI:
 		"""
 		self.pi_optim.zero_grad(set_to_none=True)
 		self.model.track_q_grad(False)
-		_, pis, log_pis, _ = self.model.pi(zs, task)
-		qs = self.model.Q(zs, pis, task, return_type='avg')
+		_, pis, log_pis, _ = self.model.pi(zs)
+		qs = self.model.Q(zs, pis, return_type='avg')
 		self.scale.update(qs[0])
 		qs = self.scale(qs)
 
@@ -288,7 +288,7 @@ class VMPPI:
 
 		# Predictions
 		_zs = zs[:-1]
-		qs = self.model.Q(_zs, action[:-1], return_type='all')
+		qs = self.model.Q(_zs, action, return_type='all')
 		
 		# Compute losses
 		value_loss = 0

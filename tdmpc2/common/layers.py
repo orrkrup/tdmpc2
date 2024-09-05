@@ -62,6 +62,21 @@ class PixelPreprocess(nn.Module):
 		return x.div_(255.).sub_(0.5)
 
 
+class SubsamplePC(nn.Module):
+	"""
+	Subsample point cloud observations.
+	"""
+	def __init__(self, n_points):
+		super().__init__()
+		self.n_points = n_points
+
+	def forward(self, x):
+		if x.shape[-1] > self.n_points:
+			inds = torch.randperm(x.shape[-1])[:self.n_points]
+			x = x[..., inds]
+		return x
+
+
 class SimNorm(nn.Module):
 	"""
 	Simplicial normalization.
@@ -163,6 +178,7 @@ def pointnet(in_dim, out_dim, dropout=0., use_layernorm=False, act=None):
 
 	# Initialization of the MLP:
 	mlp = nn.Sequential(
+		SubsamplePC(1024),
 		nn.Linear(in_dim, block_channel[0]),
 		nn.LayerNorm(block_channel[0]) if use_layernorm else nn.Identity(),
 		nn.ReLU(),
