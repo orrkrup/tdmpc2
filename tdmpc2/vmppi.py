@@ -17,7 +17,7 @@ class VMPPI:
 	def __init__(self, cfg, env):
 		self.cfg = cfg
 		self.envs = env
-		self.device = torch.device('cuda')
+		self.device = torch.device(f'cuda:{cfg.gpu}')
 		self.model = WorldModel(cfg).to(self.device)
 		self.optim = torch.optim.Adam([
 			{'params': self.model._encoder.parameters(), 'lr': self.cfg.lr*self.cfg.enc_lr_scale},
