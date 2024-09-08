@@ -68,7 +68,7 @@ def make_env(cfg):
 
     # TODO: get desc details from cfg
     
-    device_name = "cuda:0" if torch.cuda.is_available() else "cpu"
+    device_name = f"cuda:{cfg.gpu}" if torch.cuda.is_available() else "cpu"
 
     # env setup
     # item_desc = ItemDescription(type='irbpp', dataset_name='blockout', dataset_root='../isaac_robot_sims/data/IR_BPP_Dataset/')
