@@ -17,7 +17,7 @@ class BinPackingWrapper(gym.Wrapper):
         self.num_envs = env.num_envs
 		
         if self.use_object:
-            self.observation_space = {f'{k}_pc': v for k, v in self.env.observation_space.items()}
+            self.observation_space = gym.spaces.Dict({f'{k}_pc': v for k, v in self.env.observation_space.items()})
         else:
             self.observation_space = self.env.observation_space['bin']
 
@@ -71,16 +71,16 @@ def make_env(cfg):
     device_name = f"cuda:{cfg.gpu}" if torch.cuda.is_available() else "cpu"
 
     # env setup
-    # item_desc = ItemDescription(type='irbpp', dataset_name='blockout', dataset_root='../isaac_robot_sims/data/IR_BPP_Dataset/')
-    # bin_desc = BinDescription(size=[0.32, 0.32, 0.3])
+    if 'blockout' in cfg.dataset:
+        item_desc = ItemDescription(type='irbpp', dataset_name='blockout', dataset_root=cfg.dataset_root)
+        bin_desc = BinDescription(size=[0.32, 0.32, 0.3])
+    elif 'same' in cfg.dataset:
+        item_desc = ItemDescription(type='cuboid', n_items=60, items_to_pack=30, test_items=30, 
+                                    mode='random', limits={'x': [0.095, 0.095], 'y': [0.095, 0.095], 'z': [0.095, 0.095]})
+        bin_desc = BinDescription(size=[0.5, 0.3, 0.2])
 
-    item_desc = ItemDescription(type='cuboid', n_items=60, items_to_pack=30, test_items=30, 
-                                mode='random', limits={'x': [0.095, 0.095], 'y': [0.095, 0.095], 'z': [0.095, 0.095]})
-    bin_desc = BinDescription(size=[0.5, 0.3, 0.2])
-    # item_desc = ItemDescription(type='irbpp', dataset_name='blockout', dataset_root='/home/orr/research/isaac_robot_sims/data/IR_BPP_Dataset/')
-    # bin_desc = BinDescription(size=[0.32, 0.32, 0.3])
     obs_desc = ObservationDescription(n_video_envs=1)
     env = OnlineBinPackingEnv(num_envs=cfg.num_envs, headless=True, item_desc=item_desc, bin_desc=bin_desc, obs_desc=obs_desc, device=device_name)
 
-    env = BinPackingWrapper(cfg, env, use_object=False)
+    env = BinPackingWrapper(cfg, env, use_object='same' not in cfg.dataset)
     return env

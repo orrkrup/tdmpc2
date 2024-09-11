@@ -144,7 +144,10 @@ class TDMPC2:
 		for _ in range(self.cfg.iterations):
 
 			# Sample actions
-			actions[:, :, self.cfg.num_pi_trajs:] = (mean.unsqueeze(2) + std.unsqueeze(2) * \
+			if len(mean.shape) == 3:
+				mean = mean.unsqueeze(2)
+
+			actions[:, :, self.cfg.num_pi_trajs:] = (mean + std.unsqueeze(2) * \
 				torch.randn(self.cfg.num_envs, self.cfg.horizon, self.cfg.num_samples-self.cfg.num_pi_trajs, self.cfg.action_dim, device=std.device)) \
 				.clamp(-1, 1)
 			if self.cfg.multitask:
@@ -166,6 +169,9 @@ class TDMPC2:
 			if self.cfg.multitask:
 				mean = mean * self.model._action_masks[task]
 				std = std * self.model._action_masks[task]
+
+			if self.cfg.use_all_elites:
+				mean = elite_actions.tile(1, 1, self.cfg.num_samples // self.cfg.num_elites, 1)
 
 		# Select action sequence with probability `score`
 		score = score.squeeze(1).squeeze(-1).cpu().numpy()

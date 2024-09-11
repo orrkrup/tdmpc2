@@ -6,6 +6,8 @@ task: online-bpp
 obs: pc
 num_envs: 2
 gpu_act: true
+dataset: same
+dataset_root: /home/orr/research/isaac_robot_sims/data/IR_BPP_Dataset/
 
 # evaluation
 checkpoint: ???
@@ -29,7 +31,7 @@ tau: 0.01
 discount_denom: 5
 discount_min: 0.95
 discount_max: 0.995
-buffer_size: 1_000_000
+buffer_size: 500_000
 exp_name: default
 data_dir: ???
 log_freq: 1000
@@ -39,11 +41,12 @@ mpc: true
 iterations: 6
 num_samples: 512
 num_elites: 64
-num_pi_trajs: 24
+num_pi_trajs: 0
 horizon: 3
 min_std: 0.05
 max_std: 2
 temperature: 0.5
+use_all_elites: true
 
 # actor
 log_std_min: -10
@@ -81,8 +84,8 @@ seed: 1
 gpu: 0
 
 # convenience
-work_dir: /home/research/tdmpc2
-task_title: online_same_bin_packing
+work_dir: /home/orr/research/tdmpc2
+task_title: online_bin_packing
 multitask: False
 tasks: ???
 obs_shape: ???
